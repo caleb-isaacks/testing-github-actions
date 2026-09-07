@@ -1,0 +1,153 @@
+name: Terraform CI/CD
+
+# Runs automatically on every push and pull request targeting main
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  TF_VERSION: "1.12.0"
+
+# id-token: write is required for OIDC login to Azure (no long-lived secrets)
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  # ---------------------------------------------------------------------
+  # STAGE 1: Validate — runs on every commit, every branch, every PR
+  # ---------------------------------------------------------------------
+  validate:
+    name: Validate & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init (no backend, just syntax)
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ---------------------------------------------------------------------
+  # STAGE 2: Plan — runs on every commit, posts the plan as a PR comment
+  # ---------------------------------------------------------------------
+  plan:
+    name: Terraform Plan
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan -detailed-exitcode
+        continue-on-error: true   # exit code 2 means "changes present", not a failure
+
+      - name: Save human-readable plan
+        run: terraform show -no-color tfplan > plan_output.txt
+
+      # Proof/logs: the plan file and its text output are stored as build artifacts
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.sha }}
+          path: |
+            tfplan
+            plan_output.txt
+          retention-days: 14
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('plan_output.txt', 'utf8').slice(0, 60000);
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform Plan 📖\n<details><summary>Show Plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n\n</details>`
+            });
+
+      - name: Fail job if plan itself errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  # ---------------------------------------------------------------------
+  # STAGE 3: Apply — only on main, gated by the "production" environment
+  # ---------------------------------------------------------------------
+  apply:
+    name: Terraform Apply (Production)
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production   # <-- Settings > Environments > production > Required reviewers
+                          #     is what turns this into a manual approval gate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Download the exact plan that was reviewed
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ github.sha }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan | tee apply_output.log
+
+      # Proof/logs: the apply transcript is stored for audit purposes
+      - name: Upload apply log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apply-log-${{ github.sha }}
+          path: apply_output.log
+          retention-days: 90
