@@ -1,0 +1,31 @@
+name: terraform                      # name on the card
+
+on:                                  # 🔔 the bell
+  pull_request:                      #   ring when someone asks a grown-up
+  push:
+    branches: [main]                 #   ring when the grown-up says yes
+
+permissions:
+  id-token: write                    # 🎫 lets the robot ask for a visitor badge
+  contents: read                     # lets it read the toy box
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest           # 🧹 a clean table
+    env:                             # 🎫 which badge to ask Azure for (not passwords!)
+      ARM_USE_OIDC: true
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    steps:
+      - uses: actions/checkout@v4            # unpack the toy box
+      - uses: hashicorp/setup-terraform@v3   # get the tools out
+
+      - run: terraform init                  # 📓 open the shared notebook
+      - run: terraform fmt -check            # are the instructions neat?
+      - run: terraform validate              # do the instructions make sense?
+      - run: terraform plan                  # 🖼️ draw the picture
+
+      - run: terraform apply -auto-approve   # 🏰 build it...
+        if: github.ref == 'refs/heads/main'  #   ...but only after the grown-up said yes
