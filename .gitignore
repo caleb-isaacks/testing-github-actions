@@ -1,0 +1,16 @@
+# Terraform plugin cache, re-downloaded by terraform init
+.terraform/
+
+# State files can contain secrets
+*.tfstate
+*.tfstate.*
+
+# Variable files often contain secrets
+*.tfvars
+!prod.tfvars
+backend.hcl
+crash.log
+provider.tf
+
+crash.log
+
