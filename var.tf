@@ -11,6 +11,12 @@ variable "tags" {
   }
 }
 
+data "azurerm_key_vault" "keyvault" {
+  name = var.keyvault_name
+  resource_group_name = var.key_vault_rg
+}
+
+
 data "azurerm_key_vault_secret" "password" {
   key_vault_id = data.azurerm_key_vault.keyvault.id
   name         = "password"
@@ -74,8 +80,3 @@ variable "failed_login_threshold" {
   default = 5
 }
 
-variable "ntfy_topic" {
-  type      = string
-  sensitive = true
-  default   = "hubspoke-ops-7f3k9d2x"
-}

@@ -8,11 +8,9 @@
 # Variable files often contain secrets
 *.tfvars
 !prod.tfvars
-<<<<<<< HEAD
 backend.hcl
 crash.log
 provider.tf
-=======
 
 crash.log
->>>>>>> aa59ce12fb5d69bff382523aa3b8365c804e9caf
+
