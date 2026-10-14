@@ -1,4 +1,4 @@
-name: terraform
+name: terraform-poc
 
 on:
   pull_request:
@@ -6,11 +6,10 @@ on:
     branches: [main]
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
-  scan:                                   # no Azure access needed
+  scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,19 +28,4 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
-          soft_fail: true                 # flip to false once findings are fixed
-
-  plan:                                   # needs Azure, runs on pull requests only
-    needs: scan                           # only runs if scan passed
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    env:
-      ARM_USE_OIDC: true
-      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform init
-      - run: terraform plan -var-file=prod.tfvars
+          soft_fail: true
