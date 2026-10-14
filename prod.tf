@@ -4,12 +4,12 @@ variable "ntfy_topic" {
   default   = "hubspoke-ops-7f3k9d2x"
 }
 
-variable "keyvault_name"{
-    type = string
-    default = "terraform-study-kv-01"
+variable "keyvault_name" {
+  type    = string
+  default = "terraform-study-kv-01"
 }
 
-variable "key_vault_rg"{
-    type = string
-    default = "tf-state-remote"
+variable "key_vault_rg" {
+  type    = string
+  default = "tf-state-remote"
 }
