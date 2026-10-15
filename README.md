@@ -2,7 +2,7 @@
 
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC) ![Azure](https://img.shields.io/badge/Cloud-Azure-0078D4) ![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF)
 
-## The Problem (Plain English)
+## The Problem
 
 A small business needs a secure network in the cloud that it can rebuild the same way every time. Building it by hand through the Azure portal is slow, easy to get wrong, and hard to repeat.
 
